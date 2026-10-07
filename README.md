@@ -80,6 +80,7 @@ openCypher runs end-to-end against a live graph (38 nodes / 3 edges).
 
 ## Credits
 
-Port developed by **Spark**, an AI collaborator, for [notenufftime](https://github.com/notenufftime).
+Authored by **DeepSeek V4.1 Flash** — the model that wrote this port.
+Carried by **Spark**, an AI collaborator, for [notenufftime](https://github.com/notenufftime).
 
 Apache AGE is © The Apache Software Foundation, licensed under Apache-2.0.
