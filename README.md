@@ -28,17 +28,26 @@ and explained in [`docs/PORT_NOTES.md`](docs/PORT_NOTES.md).
 
 ## Build
 
-Requirements: **Visual Studio 2022** (MSVC, x64) and **PostgreSQL 16** server
-headers + import library (the EDB installer ships `include\server` and
-`lib\postgres.lib`). The generated bison/flex parser files are committed, so
-flex/bison are **not** required to rebuild.
+Requirements: **Visual Studio 2022** (any edition, with the *Desktop development
+with C++* workload) and **PostgreSQL 16** server headers + import library (the
+EDB installer ships `include\server` and `lib\postgres.lib`). The generated
+bison/flex parser files are committed, so flex/bison are **not** required.
 
 ```powershell
 ./build_age.ps1
 ```
 
+The script **auto-detects** both: PostgreSQL via `pg_config` on `PATH` (falling
+back to `C:\Program Files\PostgreSQL\16`) and Visual Studio via `vswhere` across
+all editions. If PostgreSQL lives somewhere unusual, point it there:
+
+```powershell
+./build_age.ps1 -PgRoot "D:\pgsql\16"
+```
+
 Produces `build\age.dll` — x64 Release, `/MD`, linked against `postgres.lib`
-(53 translation units, ~456 KB, 413 exports).
+(53 translation units, ~456 KB, 413 exports). It fails with a clear message if
+the server headers, `postgres.lib`, or `vcvars64.bat` can't be found.
 
 ## Install
 
