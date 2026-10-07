@@ -1,0 +1,119 @@
+diff --git a/src/backend/parser/cypher_gram.y b/src/backend/parser/cypher_gram.y
+index a579fe7..040c13a 100644
+--- a/src/backend/parser/cypher_gram.y
++++ b/src/backend/parser/cypher_gram.y
+@@ -49,6 +49,24 @@
+ %parse-param {ag_scanner_t scanner}
+ %parse-param {cypher_yy_extra *extra}
+ 
++/* The Windows SDK defines DELETE, IN, OPTIONAL and STRING as macros; they
++ * collide with the Cypher token identifiers. Undefine them after <windows.h>
++ * has been pulled in via postgres.h, before the token enum is declared. */
++%code requires {
++#ifdef DELETE
++#undef DELETE
++#endif
++#ifdef IN
++#undef IN
++#endif
++#ifdef OPTIONAL
++#undef OPTIONAL
++#endif
++#ifdef STRING
++#undef STRING
++#endif
++}
++
+ %union {
+     /* types in cypher_yylex() */
+     int integer;
+@@ -62,7 +80,7 @@
+ }
+ 
+ %token <integer> INTEGER
+-%token <string> DECIMAL STRING
++%token <string> DECIMAL CG_STRING
+ 
+ %token <string> IDENTIFIER
+ %token <string> PARAMETER
+@@ -1802,7 +1820,7 @@ expr_literal:
+         {
+             $$ = make_float_const($1, @1);
+         }
+-    | STRING
++    | CG_STRING
+         {
+             $$ = make_string_const($1, @1);
+         }
+@@ -2526,7 +2544,7 @@ static char *create_unique_name(char *prefix_name)
+ {
+     char *name = NULL;
+     char *prefix = NULL;
+-    uint nlen = 0;
++    unsigned int nlen = 0;
+     unsigned long unique_number = 0;
+ 
+     /* get a unique number */
+diff --git a/src/backend/parser/cypher_parser.c b/src/backend/parser/cypher_parser.c
+index 4ec56fb..fdb1c92 100644
+--- a/src/backend/parser/cypher_parser.c
++++ b/src/backend/parser/cypher_parser.c
+@@ -35,7 +35,7 @@ int cypher_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, ag_scanner_t scanner)
+         0,
+         INTEGER,
+         DECIMAL,
+-        STRING,
++        CG_STRING,
+         IDENTIFIER,
+         PARAMETER,
+         NOT_EQ,
+diff --git a/src/backend/utils/adt/agtype.c b/src/backend/utils/adt/agtype.c
+index 065e325..dd4cf40 100644
+--- a/src/backend/utils/adt/agtype.c
++++ b/src/backend/utils/adt/agtype.c
+@@ -9643,12 +9643,27 @@ PG_FUNCTION_INFO_V1(age_timestamp);
+ Datum age_timestamp(PG_FUNCTION_ARGS)
+ {
+     agtype_value agtv_result;
+-    struct timespec ts;
+     long ms = 0;
+ 
+     /* get the system time and convert it to milliseconds */
+-    clock_gettime(CLOCK_REALTIME, &ts);
+-    ms += (ts.tv_sec * 1000) + (ts.tv_nsec / 1000000);
++#ifdef _WIN32
++    {
++        FILETIME ft;
++        ULARGE_INTEGER li;
++
++        GetSystemTimeAsFileTime(&ft);
++        li.LowPart = ft.dwLowDateTime;
++        li.HighPart = ft.dwHighDateTime;
++        ms = (long long)(li.QuadPart / 10000ULL) - 11644473600000LL;
++    }
++#else
++    {
++        struct timespec ts;
++
++        clock_gettime(CLOCK_REALTIME, &ts);
++        ms += (ts.tv_sec * 1000) + (ts.tv_nsec / 1000000);
++    }
++#endif
+ 
+     /* build the result */
+     agtv_result.type = AGTV_INTEGER;
+diff --git a/src/include/commands/label_commands.h b/src/include/commands/label_commands.h
+index 6bbc814..00c6a30 100644
+--- a/src/include/commands/label_commands.h
++++ b/src/include/commands/label_commands.h
+@@ -57,8 +57,8 @@
+ void create_label(char *graph_name, char *label_name, char label_type,
+                   List *parents);
+ 
+-Datum create_vlabel(PG_FUNCTION_ARGS);
++extern PGDLLEXPORT Datum create_vlabel(PG_FUNCTION_ARGS);
+ 
+-Datum create_elabel(PG_FUNCTION_ARGS);
++extern PGDLLEXPORT Datum create_elabel(PG_FUNCTION_ARGS);
+ 
+ #endif
